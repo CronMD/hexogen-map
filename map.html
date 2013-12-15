@@ -1,6 +1,6 @@
 <html>
     <head>
-        <title>canvasExample</title>
+        <title>Hexogen grid</title>
         <meta charset='utf-8' />
     </head>
     <body>
@@ -101,8 +101,10 @@
 
             	while(fringe.length > 0) {
             		var p = fringe.shift();
+            		console.log(p.x, p.y, p.r);
 
             		if(visited.indexOf(this.getPointHash(p)) >= 0) continue;
+            		visited.push(this.getPointHash(p));
 
             		this.drawCell(p.x, p.y)
 
