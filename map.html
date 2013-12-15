@@ -1,0 +1,137 @@
+<html>
+    <head>
+        <title>canvasExample</title>
+        <meta charset='utf-8' />
+    </head>
+    <body>
+    	<div>
+    		<div></div>
+    		<div style="float: right; width:200px;">
+    			Range <input type="text" id="range" value="0" />
+    			<br/>
+    			<button id="btn-reset">Reset</button>
+    		</div>
+    	</div>
+        <canvas height='480' width='640' id='map'>Обновите браузер</canvas>
+        <script>
+        	function HexMap(canvasId, cellHeight) {
+        		this.canvasId = canvasId;
+        		this.cellHeight = cellHeight;
+        		this.map = document.getElementById(canvasId),
+        		this.rowCellsNumber = Math.round(this.map.width / cellHeight);
+        		this.columnCellsNumber = Math.round(this.map.height / cellHeight);
+        		this.ctx = this.map.getContext('2d');
+        		this.dx = Math.round(Math.sin(Math.PI / 3) * cellHeight);
+        		this.dy = Math.round(Math.cos(Math.PI / 3) * cellHeight) + cellHeight;
+        		this.neighborsEvenMask = [{x: 1, y: 0}, {x: 1, y: -1}, {x: 0, y: -1}, {x: 0, y: 1}, {x: 1, y: 1} , {x: -1, y: 0}];
+        		this.neighborsOddMask = [{x: 1, y: 0}, {x: -1, y: -1}, {x: 0, y: -1}, {x: 0, y: 1}, {x: -1, y: 1} , {x: -1, y: 0}];
+        		this.hexMask = [];
+
+        		var startAngle = Math.PI / 2;
+            	var incrementAngle = Math.PI / 3
+            	for(var i=0; i<6; i++) {
+            		var x = Math.round(Math.cos(startAngle +  incrementAngle * i) * cellHeight);
+            		var y = Math.round(Math.sin(startAngle +  incrementAngle * i) * cellHeight);
+            		this.hexMask.push({'x': x, 'y': y});
+            	}
+        	}
+
+        	HexMap.prototype.drawHex = function (x, y) {
+        		this.ctx.beginPath();
+            	var last = this.hexMask.length - 1;
+            	this.ctx.moveTo(this.hexMask[last].x + x, this.hexMask[last].y + y);
+
+            	for(var i=0; i<this.hexMask.length; i++){
+            		this.ctx.lineTo(x + this.hexMask[i].x, y + this.hexMask[i].y);
+            	}
+            	this.ctx.stroke();
+        	};
+
+        	HexMap.prototype.drawCell = function(x, y) {
+        		if(y % 2) {
+            		this.drawHex(x*this.dx*2, y * this.dy);	
+            	} else {
+            		this.drawHex(x*this.dx*2 + this.dx, y * this.dy);
+            	}
+        	};
+
+        	HexMap.prototype.getNeighbors = function(x, y) {
+        		var mask = y % 2 ? this.neighborsOddMask : this.neighborsEvenMask;
+        		var neighbors = [];
+
+            	for(var i in mask) {
+            		var d = mask[i];
+            		neighbors.push({'x': x + d.x, 'y': y+d.y});
+            	}
+            	return neighbors;
+        	};
+
+        	HexMap.prototype.drawMap = function() {
+        		this.ctx.fillStyle = '#000';
+
+        		this.ctx.fillRect(0, 0, this.map.width, this.map.height);
+
+        		this.ctx.strokeStyle = '#FFF';
+        		for(var y=0; y<this.columnCellsNumber; y++) {
+            		for(var x=0; x<this.rowCellsNumber; x++) {
+            			this.drawCell(x, y);	
+            		}
+            	}
+        	};
+
+        	HexMap.prototype.getPointHash = function(point) {
+        		return point.x+'_'+point.y;
+        	};
+
+        	HexMap.prototype.getCellPointByCoords = function (x, y) {
+        		var cx, cy = Math.round(y / this.dy);
+        		
+        		if(cy % 2 === 0) {
+        			x -= this.dx;
+        		}
+        		cx = Math.round(x / (this.dx*2));
+        		return {'x': cx, 'y': cy};
+        	};
+
+        	HexMap.prototype.drawMoves = function (x, y, r) {
+        		this.ctx.strokeStyle = '#0F0';
+
+            	var fringe = [ {'x': x, 'y': y, 'r': r} ];
+            	var visited = [];
+
+            	while(fringe.length > 0) {
+            		var p = fringe.shift();
+
+            		if(visited.indexOf(this.getPointHash(p)) >= 0) continue;
+
+            		this.drawCell(p.x, p.y)
+
+            		if(p.r <= 0) continue;
+
+            		var neighbors = this.getNeighbors(p.x, p.y);
+            		for(var i in neighbors) {
+            			var n = neighbors[i];
+            			fringe.push({'x': n.x, 'y': n.y, 'r': p.r - 1});
+            		}
+            	}
+
+            	this.ctx.strokeStyle = '#F00';
+            	this.drawCell(x, y);
+        	}
+
+        	var map = new HexMap('map', 30);
+        	map.drawMap();
+        	map.map.addEventListener('click', function (e) {
+        		var x = e.x - map.map.offsetLeft + window.scrollX,
+        			y = e.y - map.map.offsetTop + window.scrollY;
+        		console.log(x, y);
+        		var p = map.getCellPointByCoords(x,y);
+        		console.log(p);
+
+        		//map.ctx.strokeStyle = '#0F0';
+        		//map.drawCell(p.x, p.y);
+        		map.drawMoves(p.x, p.y, 2);
+        	});
+        </script>
+    </body>
+</html>
