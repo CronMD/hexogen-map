@@ -9,7 +9,7 @@
     		<div style="float: right; width:200px;">
     			Range <input type="text" id="range" value="0" />
     			<br/>
-    			<button id="btn-reset">Reset</button>
+    			<button id="btn-clear">Clear</button>
     		</div>
     	</div>
         <canvas height='480' width='640' id='map'>Обновите браузер</canvas>
@@ -124,13 +124,18 @@
         	map.map.addEventListener('click', function (e) {
         		var x = e.x - map.map.offsetLeft + window.scrollX,
         			y = e.y - map.map.offsetTop + window.scrollY;
-        		console.log(x, y);
         		var p = map.getCellPointByCoords(x,y);
-        		console.log(p);
+
+
+        		var range  = parseInt(document.getElementById('range').value);
 
         		//map.ctx.strokeStyle = '#0F0';
         		//map.drawCell(p.x, p.y);
-        		map.drawMoves(p.x, p.y, 2);
+        		map.drawMoves(p.x, p.y, range);
+        	});
+
+        	document.getElementById('btn-clear').addEventListener('click', function (e) {
+        		map.drawMap();
         	});
         </script>
     </body>
