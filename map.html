@@ -26,6 +26,8 @@
         		this.neighborsEvenMask = [{x: 1, y: 0}, {x: 1, y: -1}, {x: 0, y: -1}, {x: 0, y: 1}, {x: 1, y: 1} , {x: -1, y: 0}];
         		this.neighborsOddMask = [{x: 1, y: 0}, {x: -1, y: -1}, {x: 0, y: -1}, {x: 0, y: 1}, {x: -1, y: 1} , {x: -1, y: 0}];
         		this.hexMask = [];
+        		this.barriers = [];
+        		this.barriersHashes = {};
 
         		var startAngle = Math.PI / 2;
             	var incrementAngle = Math.PI / 3;
@@ -77,6 +79,8 @@
             			this.drawCell(x, y);	
             		}
             	}
+
+            	this.drawBarriers();
         	};
 
         	HexMap.prototype.getPointHash = function(point) {
@@ -121,7 +125,57 @@
             	this.drawCell(x, y);
         	}
 
+        	HexMap.prototype.drawMovesWithBarriers = function (x, y, r) {
+        		this.ctx.strokeStyle = '#0F0';
+
+            	var fringe = [ {'x': x, 'y': y, 'r': r} ];
+            	var visited = [];
+
+            	while(fringe.length > 0) {
+            		var p = fringe.shift();
+
+            		if(visited.indexOf(this.getPointHash(p)) >= 0) continue;
+            		visited.push(this.getPointHash(p));
+
+            		this.drawCell(p.x, p.y)
+
+            		if(p.r <= 0) continue;
+
+            		var neighbors = this.getNeighbors(p.x, p.y);
+            		for(var i in neighbors) {
+            			var n = neighbors[i];
+            			if(this.barriersHashes[this.getPointHash(n)] != null) continue;
+
+            			fringe.push({'x': n.x, 'y': n.y, 'r': p.r - 1});
+            		}
+            	}
+
+            	this.ctx.strokeStyle = '#F00';
+            	this.drawCell(x, y);
+
+            	this.drawBarriers();	
+        	}
+
+        	HexMap.prototype.addBarriers = function (barriers) {
+        		for(i in barriers) {
+        			var barrier = barriers[i];
+        			this.barriersHashes[this.getPointHash(barrier)] = 1;
+        		}
+
+        		this.barriers = this.barriers.concat(barriers);
+        	};
+
+        	HexMap.prototype.drawBarriers = function () {
+        		for(var i in this.barriers) {
+        			var barrier  = this.barriers[i];
+        			this.ctx.strokeStyle = "#00F";
+        			this.drawCell(barrier.x, barrier.y);
+        		}
+        	}
+
         	var map = new HexMap('map', 30);
+        	map.addBarriers([{x: 5, y: 5}, {x: 6, y: 5}, {x: 7, y: 5}, {x: 7, y: 6}, {x: 5, y: 4}, {x:6, y: 3}, {x:7, y: 2}, {x:7, y: 1}]);
+
         	map.drawMap();
         	map.map.addEventListener('click', function (e) {
         		var x = e.x - map.map.offsetLeft + window.scrollX,
@@ -131,7 +185,7 @@
 
         		var range  = parseInt(document.getElementById('range').value);
 
-        		map.drawMoves(p.x, p.y, range);
+        		map.drawMovesWithBarriers(p.x, p.y, range);
         	});
 
         	document.getElementById('btn-clear').addEventListener('click', function (e) {
