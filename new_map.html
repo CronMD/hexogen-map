@@ -1,0 +1,215 @@
+<html>
+    <head>
+        <title>Hexogen grid</title>
+        <meta charset='utf-8' />
+    </head>
+    <body>
+    	<div>
+    		<div></div>
+    		<div style="float: right; width:200px;">
+    			Range <input type="text" id="range" value="2" />
+    			<br/>
+    			<button id="btn-clear">Clear</button>
+    		</div>
+    	</div>
+        <canvas height='480' width='640' id='map'>Обновите браузер</canvas>
+        <script>
+        	(function () {
+
+        		function Map(mapId, bodyWidth, bodyHeight, endHeight){
+        			this.mapId = mapId;
+        			this.map = document.getElementById(mapId);
+        			this.ctx = this.map.getContext('2d');
+        			this.neighborsEvenMask = [{x: 1, y: 0}, {x: 1, y: -1}, {x: 0, y: -1}, {x: 0, y: 1}, {x: 1, y: 1} , {x: -1, y: 0}];
+        			this.neighborsOddMask = [{x: 1, y: 0}, {x: -1, y: -1}, {x: 0, y: -1}, {x: 0, y: 1}, {x: -1, y: 1} , {x: -1, y: 0}]; 
+        			this.mapWidth = this.map.width;
+        			this.mapHeight = this.map.height;
+        			this.barriers = [];
+        			this.barriersHashes = {};
+
+        			this.bodyWidth = bodyWidth;
+        			this.bodyHeight = bodyHeight;
+        			this.endHeight = endHeight;
+        			this.semiWidth = Math.round(this.bodyWidth / 2);
+
+        			/*this.bodyWidth = 20;
+        			this.bodyHeight = 20;
+        			this.endHeight = 10;
+        			this.semiWidth = Math.round(this.bodyWidth / 2);*/
+
+        			this.rowCellsNumber = Math.round(this.mapWidth / this.bodyWidth);
+        			this.columnCellsNumber = Math.round(this.mapHeight / (this.bodyHeight + this.endHeight));
+
+        		}
+
+        		Map.prototype.drawHex = function (sx, sy) {
+        			this.ctx.beginPath();
+
+        			this.ctx.moveTo(sx, sy + this.endHeight);
+        			this.ctx.lineTo(sx + this.semiWidth, sy);
+        			this.ctx.lineTo(sx + this.bodyWidth, sy + this.endHeight);
+        			this.ctx.lineTo(sx + this.bodyWidth, sy + this.endHeight + this.bodyHeight);
+        			this.ctx.lineTo(sx + this.semiWidth, sy + 2*this.endHeight + this.bodyHeight);
+        			this.ctx.lineTo(sx, sy + this.endHeight + this.bodyHeight);
+        			this.ctx.lineTo(sx, sy + this.endHeight);
+
+        			this.ctx.stroke();
+        		};
+
+        		Map.prototype.drawCell = function (x, y) {
+        			if(y % 2) {
+        				this.drawHex(x * this.bodyWidth, y * (this.bodyHeight + this.endHeight));
+        			} else {
+        				this.drawHex(x * this.bodyWidth + this.semiWidth, y * (this.bodyHeight + this.endHeight));
+        			}
+        		};
+
+        		Map.prototype.getCellPointByCoords = function (x, y) {
+        			var cx, cy = Math.floor(y / (this.bodyHeight + this.endHeight));
+
+        			var dx = this.semiWidth;
+
+        			if(cy % 2) {
+        				dx = 0;
+        			}
+
+        			x -= dx;
+        			var cx = Math.floor(x / this.bodyWidth);
+
+        			return {'x': cx, 'y': cy};
+        		};
+
+        		Map.prototype.drawMap = function () {
+        			this.clearScreen();
+
+        			this.ctx.strokeStyle = '#FFF';
+
+        			for(var y=0; y<this.columnCellsNumber; y++) {
+            			for(var x=0; x<this.rowCellsNumber; x++) {
+            				this.drawCell(x, y);
+            			}
+            		}
+
+            		this.drawBarriers();
+        		};
+
+        		Map.prototype.clearScreen = function () {
+        			this.ctx.fillStyle = '#000';
+        			this.ctx.fillRect(0, 0, this.map.width, this.map.height);
+        		};
+
+        		Map.prototype.getNeighbors = function(x, y) {
+        			var mask = y % 2 ? this.neighborsOddMask : this.neighborsEvenMask;
+        			var neighbors = [];
+
+            		for(var i in mask) {
+            			var d = mask[i];
+            			neighbors.push({'x': x + d.x, 'y': y+d.y});
+            		}
+            		return neighbors;
+        		};
+
+        		Map.prototype.getPointHash = function(point) {
+        			return point.x+'_'+point.y;
+        		};
+
+        		Map.prototype.drawMoves = function (x, y, r) {
+        			this.ctx.strokeStyle = '#0F0';
+
+            		var fringe = [ {'x': x, 'y': y, 'r': r} ];
+            		var visited = [];
+
+            		while(fringe.length > 0) {
+            			var p = fringe.shift();
+            			console.log(p.x, p.y, p.r);
+
+            			if(visited.indexOf(this.getPointHash(p)) >= 0) continue;
+            			visited.push(this.getPointHash(p));
+
+            			this.drawCell(p.x, p.y)
+
+            			if(p.r <= 0) continue;
+
+            			var neighbors = this.getNeighbors(p.x, p.y);
+            			for(var i in neighbors) {
+            				var n = neighbors[i];
+            				fringe.push({'x': n.x, 'y': n.y, 'r': p.r - 1});
+            			}
+            		}
+
+            		this.ctx.strokeStyle = '#F00';
+            		this.drawCell(x, y);
+        		}
+
+        		Map.prototype.addBarriers = function (barriers) {
+        			for(i in barriers) {
+        				var barrier = barriers[i];
+        				this.barriersHashes[this.getPointHash(barrier)] = 1;
+        			}
+
+        			this.barriers = this.barriers.concat(barriers);
+        		};
+
+        		Map.prototype.drawBarriers = function () {
+        			for(var i in this.barriers) {
+        				var barrier  = this.barriers[i];
+        				this.ctx.strokeStyle = "#00F";
+        				this.drawCell(barrier.x, barrier.y);
+        			}
+        		}
+
+        		Map.prototype.drawMovesWithBarriers = function (x, y, r) {
+        			this.ctx.strokeStyle = '#0F0';
+
+            		var fringe = [ {'x': x, 'y': y, 'r': r} ];
+            		var visited = [];
+
+            		while(fringe.length > 0) {
+            			var p = fringe.shift();
+
+            			if(visited.indexOf(this.getPointHash(p)) >= 0) continue;
+            			visited.push(this.getPointHash(p));
+
+            			this.drawCell(p.x, p.y)
+
+            			if(p.r <= 0) continue;
+
+            			var neighbors = this.getNeighbors(p.x, p.y);
+            			for(var i in neighbors) {
+            				var n = neighbors[i];
+            				if(this.barriersHashes[this.getPointHash(n)] != null) continue;
+
+            				fringe.push({'x': n.x, 'y': n.y, 'r': p.r - 1});
+            			}
+            		}
+
+            		this.ctx.strokeStyle = '#F00';
+            		this.drawCell(x, y);
+
+            		this.drawBarriers();	
+        		};
+
+        		var map = new Map('map', 40, 14, 6);
+        		map.addBarriers([{x: 5, y: 5}, {x: 6, y: 5}, {x: 7, y: 5}, {x: 7, y: 6}, {x: 5, y: 4}, {x:6, y: 3}, {x:7, y: 2}, {x:7, y: 1}]);
+
+        		console.log(map);
+        		map.drawMap();
+
+        		map.map.addEventListener('click', function (e) {
+        			var x = e.x - map.map.offsetLeft + window.scrollX,
+        				y = e.y - map.map.offsetTop + window.scrollY;
+        			var p = map.getCellPointByCoords(x,y);
+
+
+        			var range  = parseInt(document.getElementById('range').value);
+
+        			map.drawMovesWithBarriers(p.x, p.y, range);
+        		});
+
+        		document.getElementById('btn-clear').addEventListener('click', function (e) {
+        			map.drawMap();
+        		});
+        	})();
+        </script>
+    </body>
+</hrad>
